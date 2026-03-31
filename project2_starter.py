@@ -1,13 +1,15 @@
 # SI 201 HW4 (Library Checkout System)
-# Your name:
-# Your student id:
-# Your email:
+# Your name: Brett Hafkin
+# Your student id: 55774311
+# Your email: bhafkin@umich.edu
 # Who or what you worked with on this homework (including generative AI like ChatGPT):
 # If you worked with generative AI also add a statement for how you used it.
 # e.g.:
 # Asked ChatGPT for hints on debugging and for suggestions on overall code structure
 #
 # Did your use of GenAI on this assignment align with your goals and guidelines in your Gen AI contract? If not, why?
+#
+# Yes, although minimal, my use of GenAI did align with the goals and guidelines on my GenAI contract. I used it to primarily help me with the structure of this code and explain certain concepts.
 #
 # --- ARGUMENTS & EXPECTED RETURN VALUES PROVIDED --- #
 # --- SEE INSTRUCTIONS FOR FULL DETAILS ON METHOD IMPLEMENTATION --- #
@@ -41,7 +43,31 @@ def load_listing_results(html_path) -> list[tuple]:
     # ==============================
     # YOUR CODE STARTS HERE
     # ==============================
-    pass
+
+    # Create empty list to store results
+    results = []
+
+    # Open HTML file and parse it with Beautiful Soup
+    with open(html_path, "r", encoding="utf-8-sig") as f:
+        soup = BeautifulSoup(f.read(), "html.parser")
+
+    # Loop through every link on page
+    for link in soup.find_all("a", href=True):
+        href = link["href"] # Get URL from link
+
+        # Check if link points to an Airbnb listing
+        if "/rooms/" in href:
+            # Use regex to find numbers after "/rooms/"
+            match = re.search(r"/rooms/(\d+)", href)
+            if match:
+                listing_id = match.group(1) # Extract ID number
+                listing_title = link.get_text(strip=True) # Get listing title text
+                results.append((listing_title, listing_id)) # Add to list
+
+    return results
+
+    # pass
+
     # ==============================
     # YOUR CODE ENDS HERE
     # ==============================
@@ -70,7 +96,69 @@ def get_listing_details(listing_id) -> dict:
     # ==============================
     # YOUR CODE STARTS HERE
     # ==============================
-    pass
+
+    # Open and read listing's HTML file
+    file_path = f"html_files/listing_{listing_id}.html"
+    with open(file_path, "r", encoding="utf-8-sig") as f:
+        soup = BeautifulSoup(f.read(), "html.parser")
+    
+    # Get all text from page to search through
+    all_text = soup.get_text()
+    
+    # Extract policy number - check for Pending/Exempt first, then look for valid formats
+    policy_number = ""
+    
+    if "Pending" in all_text:
+        policy_number = "Pending"
+    elif "Exempt" in all_text:
+        policy_number = "Exempt"
+    else:
+        # Look for policy number patterns
+        match1 = re.search(r"20\d{2}-00\d{6}STR", all_text)
+        match2 = re.search(r"STR-\d{7}", all_text)
+        
+        if match1:
+            policy_number = match1.group()
+        elif match2:
+            policy_number = match2.group()
+    
+    # Check if host is Superhost, otherwise regular
+    host_type = "regular"
+    if "Superhost" in all_text:
+        host_type = "Superhost"
+    
+    # Find host name after "Hosted by"
+    host_name = ""
+    host_match = re.search(r"Hosted by\s+([^.\n]+)", all_text)
+    if host_match:
+        host_name = host_match.group(1).strip()
+
+    # Determine room type from subtitle - default is Entire Room
+    room_type = "Entire Room"
+    if "Private" in all_text:
+        room_type = "Private Room"
+    elif "Shared" in all_text:
+        room_type = "Shared Room"
+    
+    # Get location rating, default to 0.0 if not found
+    location_rating = 0.0
+    rating_match = re.search(r"Location\s+(\d+\.?\d*)", all_text)
+    if rating_match:
+        location_rating = float(rating_match.group(1))
+    
+    # Return nested dictionary with all listing dictionaries
+    return {
+        listing_id: {
+            "policy_number": policy_number,
+            "host_type": host_type,
+            "host_name": host_name,
+            "room_type": room_type,
+            "location_rating": location_rating
+        }
+    }
+
+    # pass
+
     # ==============================
     # YOUR CODE ENDS HERE
     # ==============================
@@ -91,7 +179,39 @@ def create_listing_database(html_path) -> list[tuple]:
     # ==============================
     # YOUR CODE STARTS HERE
     # ==============================
-    pass
+
+    # Get all listing titles and IDs from search results
+    listings = load_listing_results(html_path)
+    
+    # Create empty list to store complete listing data
+    database = []
+    
+    # Loop through each listing found in search results
+    for title, listing_id in listings:
+        # Get all detailed information for specific listing
+        details = get_listing_details(listing_id)
+        
+        # Extract inner dictionary using listing ID as key
+        listing_info = details[listing_id]
+        
+        # Combine all data into tuple in order
+        complete_listing = (
+            title,                                    
+            listing_id,                               
+            listing_info["policy_number"],            
+            listing_info["host_type"],                
+            listing_info["host_name"],                
+            listing_info["room_type"],                
+            listing_info["location_rating"]
+        )
+        
+        # Add listing's tuple to database
+        database.append(complete_listing)
+    
+    return database
+
+    # pass
+
     # ==============================
     # YOUR CODE ENDS HERE
     # ==============================
@@ -114,7 +234,23 @@ def output_csv(data, filename) -> None:
     # ==============================
     # YOUR CODE STARTS HERE
     # ==============================
-    pass
+   
+    # Sort listings by location_rating (index 6) from highest to lowest
+    sorted_data = sorted(data, key=lambda x: x[6], reverse=True)
+    
+    # Open CSV file for writing
+    with open(filename, "w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        
+        # Write the header row with column names
+        writer.writerow(["Listing Title", "Listing ID", "Policy Number", "Host Type", "Host Name", "Room Type", "Location Rating"])
+        
+        # Write each listing as a row in the CSV file
+        for row in sorted_data:
+            writer.writerow(row)
+    
+    # pass
+
     # ==============================
     # YOUR CODE ENDS HERE
     # ==============================
@@ -137,7 +273,38 @@ def avg_location_rating_by_room_type(data) -> dict:
     # ==============================
     # YOUR CODE STARTS HERE
     # ==============================
-    pass
+
+    # Create dictionaries to store totals and counts for each room type
+    total_ratings = {}
+    count_ratings = {}
+    
+    # Loop through each listing
+    for listing in data:
+        # Get room_type and location_rating - from complete_listing
+        room_type = listing[5]
+        rating = listing[6]
+        
+        # Skip listings with no rating
+        if rating == 0.0:
+            continue
+        
+        # Add rating to total and increase count for room type
+        if room_type in total_ratings:
+            total_ratings[room_type] += rating
+            count_ratings[room_type] += 1
+        else:
+            total_ratings[room_type] = rating
+            count_ratings[room_type] = 1
+    
+    # Calculate average for each room type
+    averages = {}
+    for room_type in total_ratings:
+        averages[room_type] = total_ratings[room_type] / count_ratings[room_type]
+    
+    return averages
+    
+    # pass
+
     # ==============================
     # YOUR CODE ENDS HERE
     # ==============================
@@ -158,7 +325,34 @@ def validate_policy_numbers(data) -> list[str]:
     # ==============================
     # YOUR CODE STARTS HERE
     # ==============================
-    pass
+
+    # Create empty list to store invalid listing IDs
+    invalid_ids = []
+    
+    # Loop through each listing in the database
+    for listing in data:
+        # Get listing_id and policy_number - from complete_listing
+        listing_id = listing[1]
+        policy_number = listing[2]
+        
+        # Skip listings that are Pending or Exempt
+        if policy_number == "Pending" or policy_number == "Exempt":
+            continue
+        
+        # Check if policy number matches valid format
+        match1 = re.search(r"20\d{2}-00\d{6}STR", policy_number)
+        
+        # Check if policy number matches valid format
+        match2 = re.search(r"STR-\d{7}", policy_number)
+        
+        # If policy number doesn't match either ofmrat, add listing_id to invalid list
+        if not match1 and not match2:
+            invalid_ids.append(listing_id)
+    
+    return invalid_ids
+
+    # pass
+
     # ==============================
     # YOUR CODE ENDS HERE
     # ==============================
@@ -183,6 +377,7 @@ def google_scholar_searcher(query):
     # YOUR CODE ENDS HERE
     # ==============================
 
+# OH: Assertion - length of listings, check first two listings equal to "exact something", if return value is required to be dict (assertin - that variable - then dict, assertequal policy numbers - compared to actual policy numbers)
 
 class TestCases(unittest.TestCase):
     def setUp(self):
