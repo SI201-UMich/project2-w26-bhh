@@ -520,9 +520,9 @@ def main():
     detailed_data = create_listing_database(os.path.join("html_files", "search_results.html"))
     output_csv(detailed_data, "airbnb_dataset.csv")
 
-    results = google_scholar_searcher("airbnb")
-    print(results)
-
+    # results = google_scholar_searcher("airbnb")
+    # print(results)
+ 
 if __name__ == "__main__":
     main()
     unittest.main(verbosity=2)
