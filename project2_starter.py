@@ -28,10 +28,6 @@ If you are getting "encoding errors" while trying to open, read, or write from a
     encoding="utf-8-sig"
 """
 
-# FIX - Function/Test Case
-
-# Use soup method instead of regex to find info - div tags, find out other tags used - string from certain tag
-
 def load_listing_results(html_path) -> list[tuple]:
     """
     Load file data from html_path and parse through it to find listing titles and listing ids.
@@ -54,16 +50,19 @@ def load_listing_results(html_path) -> list[tuple]:
     with open(html_path, "r", encoding="utf-8-sig") as f:
         soup = BeautifulSoup(f.read(), "html.parser")
 
-
+    # Find all div elements containing listing information from search results page
     listings = soup.find_all("div", class_="t1jojoys dir dir-ltr")
-    #print(listings)
 
+    # Create empty list to store extracted listing data
     listing_list = []
 
+    # Iterate through each listing div to extract title and ID
     for listing in listings:
         listing_title = listing.text
         listing_id = listing.get("id")
         listing_id = listing_id.split("_")[1]
+
+        # Append tuple of (title, ID) to results list
         listing_list.append((listing_title, listing_id))
     
     return listing_list
@@ -73,8 +72,6 @@ def load_listing_results(html_path) -> list[tuple]:
     # ==============================
     # YOUR CODE ENDS HERE
     # ==============================
-
-# FIX - Function/Test Case
 
 def get_listing_details(listing_id) -> dict:
     """
@@ -104,26 +101,18 @@ def get_listing_details(listing_id) -> dict:
     file_path = f"html_files/listing_{listing_id}.html"
     with open(file_path, "r", encoding="utf-8-sig") as f:
         soup = BeautifulSoup(f.read(), "html.parser")
-    
-    # Get all text from page to search through
 
-
-    # Look at the <li> tags for policy numbers
-    
-    #<li class="f19phm7j dir dir-ltr">Policy number: <span class="ll4r2nl dir dir-ltr">STR-0000051</span></li>
-
+    # Extract policy number from host section
     policy_tag = soup.find_all("li", class_="f19phm7j dir dir-ltr")[0]
     policy_number = policy_tag.text.split(":")[1].strip()
-    # Extract policy number - check for Pending/Exempt first, then look for valid formats
-    # policy_number = ""
     
+    # Check for Pending or Exempt status
     if "Pending" in policy_number:
         policy_number = "Pending"
     elif "Exempt" in policy_number:
         policy_number = "Exempt"
         
-    #print(policy_number)
-
+    # Determine if host is a Superhost or regular
     host_type = soup.find_all("span", class_="_1mhorg9")
 
     if host_type:
@@ -131,8 +120,7 @@ def get_listing_details(listing_id) -> dict:
     else:
         host_type = "regular"
 
-    #<h2 tabindex="-1" class="hnwb2pb dir dir-ltr" elementtiming="LCP-target">Hosted by Seth And Alexa</h2>
-
+    # Extract host name(s) from "Hosted by" text
     host_names = soup.find_all("h2", class_="hnwb2pb dir dir-ltr")
 
     for hn in host_names:
@@ -141,6 +129,7 @@ def get_listing_details(listing_id) -> dict:
             host_name = re.findall(pattern, hn.text)[0]
             break
     
+    # Determine room type from subtitle keywords
     room_type_html = soup.find_all("div", class_="_tqmy57")[0].text
 
     if "private" in room_type_html.lower():
@@ -150,6 +139,7 @@ def get_listing_details(listing_id) -> dict:
     else:
         room_type = "Entire Room"
 
+    # Extract location rating (default 0.0 if not found)
     location_rating = 0.0
 
     location_rating_html = soup.find_all("div", class_="_7pay")
@@ -160,22 +150,8 @@ def get_listing_details(listing_id) -> dict:
         location_rating1 = re.findall(pattern, lr)
         if location_rating1:
             location_rating = float(location_rating1[0])
-    
-    # # Get location rating, default to 0.0 if not found
-    # location_rating = 0.0
-    # rating_match = re.search(r"Location\s+(\d+\.?\d*)", all_text)
-    # if rating_match:
-    #     location_rating = float(rating_match.group(1))
 
-
-    # # location_rating = 0.0
-    # # rating_match = re.search(r"Location\s*[:\s]*(\d+\.?\d*)", all_text, re.IGNORECASE)
-    # # if rating_match:
-    # #     location_rating = float(rating_match.group(1))    
-
-    
-    # # Return nested dictionary with all listing dictionaries
-
+    # Return nested dictionary with all listing details
     return {
         listing_id: {
             "policy_number": policy_number, #confirmed good
@@ -382,7 +358,6 @@ def validate_policy_numbers(data) -> list[str]:
     # YOUR CODE ENDS HERE
     # ==============================
 
-
 # EXTRA CREDIT
 def google_scholar_searcher(query):
     """
@@ -397,12 +372,43 @@ def google_scholar_searcher(query):
     # ==============================
     # YOUR CODE STARTS HERE
     # ==============================
-    pass
+
+    # Build Google Scholar search URL using the provided query
+    url = f"https://scholar.google.com/scholar?q={query}"
+
+    # Set headers to mimic real browser and avoid being blocked
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/120.0.0.0 Safari/537.36"
+    }
+
+    # Send request to Google Scholar and get page content
+    response = requests.get(url, headers=headers)
+
+    # Parse page HTML to search through it
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    # Loop through each search result title and extract text
+    titles = []
+    for h3 in soup.find_all("h3", class_="gs_rt"):
+        a_tag = h3.find("a")
+        if a_tag:
+            title_text = a_tag.get_text(separator=" ", strip=True)
+        else:
+            title_text = h3.get_text(separator=" ", strip=True)
+
+        # Remove extra spaces before punctuation
+        title_text = re.sub(r'\s([?.!,:])', r'\1', title_text)
+        titles.append(title_text)
+
+    return titles
+
+    # pass
+
     # ==============================
     # YOUR CODE ENDS HERE
     # ==============================
-
-# DELETE -- OH: Assertion - length of listings, check first two listings equal to "exact something", if return value is required to be dict (assertin - that variable - then dict, assertequal policy numbers - compared to actual policy numbers)
 
 class TestCases(unittest.TestCase):
     def setUp(self):
@@ -514,6 +520,8 @@ def main():
     detailed_data = create_listing_database(os.path.join("html_files", "search_results.html"))
     output_csv(detailed_data, "airbnb_dataset.csv")
 
+    results = google_scholar_searcher("airbnb")
+    print(results)
 
 if __name__ == "__main__":
     main()
